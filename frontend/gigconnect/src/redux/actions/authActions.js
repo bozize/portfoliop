@@ -10,49 +10,76 @@ import {
   FREELANCER_SIGNUP_REQUEST,
   FREELANCER_SIGNUP_SUCCESS,
   FREELANCER_SIGNUP_FAIL,
+  USER_LOGOUT
 } from '../constants/authConstants';
 
-// User Login Action
 export const userLogin = (credentials) => async (dispatch) => {
-    try {
-      dispatch({ type: USER_LOGIN_REQUEST });
-  
-      const config = {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      };
-  
-      const { data } = await axios.post(
-        'http://127.0.0.1:8000/api/auth/login/',
-        credentials,
-        config
-      );
-  
-      console.log('API Response:', data); // Debugging line
-  
-      dispatch({
-        type: USER_LOGIN_SUCCESS,
-        payload: data, // Passes the entire data object to the reducer
-      });
-  
-      // Save tokens to localStorage
-      localStorage.setItem('accessToken', data.access);
-      localStorage.setItem('refreshToken', data.refresh);
-      localStorage.setItem('userRole', data.role);
-    } catch (error) {
-      console.error('Login failed:', error);
-      dispatch({
-        type: USER_LOGIN_FAIL,
-        payload:
-          error.response && error.response.data.detail
-            ? error.response.data.detail
-            : error.message,
-      });
-    }
-  };
-  
-// Freelancer Signup Action
+  try {
+    dispatch({ type: USER_LOGIN_REQUEST });
+
+    const config = {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    };
+
+    const { data } = await axios.post(
+      'http://127.0.0.1:8000/api/login/',
+      credentials,
+      config
+    );
+
+    dispatch({
+      type: USER_LOGIN_SUCCESS,
+      payload: data,
+    });
+
+    localStorage.setItem('userInfo', JSON.stringify(data));
+    localStorage.setItem('accessToken', data.access);
+    localStorage.setItem('refreshToken', data.refresh);
+    localStorage.setItem('userRole', data.role);
+
+  } catch (error) {
+    dispatch({
+      type: USER_LOGIN_FAIL,
+      payload: error.response && error.response.data.detail
+        ? error.response.data.detail
+        : error.message,
+    });
+  }
+};
+
+export const clientSignup = (credentials) => async (dispatch) => {
+  try {
+    dispatch({ type: CLIENT_SIGNUP_REQUEST });
+
+    const config = {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    };
+
+    const { data } = await axios.post(
+      'http://127.0.0.1:8000/api/signup/client/',
+      credentials,
+      config
+    );
+
+    dispatch({
+      type: CLIENT_SIGNUP_SUCCESS,
+      payload: data,
+    });
+  } catch (error) {
+    dispatch({
+      type: CLIENT_SIGNUP_FAIL,
+      payload:
+        error.response && error.response.data.detail
+          ? error.response.data.detail
+          : error.message,
+    });
+  }
+};
+
 export const freelancerSignup = (credentials) => async (dispatch) => {
   try {
     dispatch({ type: FREELANCER_SIGNUP_REQUEST });
@@ -64,7 +91,7 @@ export const freelancerSignup = (credentials) => async (dispatch) => {
     };
 
     const { data } = await axios.post(
-      'http://127.0.0.1:8000/api/auth/signup/freelancer/',
+      'http://127.0.0.1:8000/api/signup/freelancer/',
       credentials,
       config
     );
@@ -84,33 +111,19 @@ export const freelancerSignup = (credentials) => async (dispatch) => {
   }
 };
 
-export const clientSignup = (credentials) => async (dispatch) => {
-    try {
-      dispatch({ type: CLIENT_SIGNUP_REQUEST });
-  
-      const config = {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      };
-  
-      const { data } = await axios.post(
-        'http://127.0.0.1:8000/api/auth/signup/client/',
-        credentials,
-        config
-      );
-  
-      dispatch({
-        type: CLIENT_SIGNUP_SUCCESS,
-        payload: data,
-      });
-    } catch (error) {
-      dispatch({
-        type: CLIENT_SIGNUP_FAIL,
-        payload:
-          error.response && error.response.data.detail
-            ? error.response.data.detail
-            : error.message,
-      });
-    }
-  };
+export const logout = () => (dispatch) => {
+  localStorage.removeItem('userInfo');
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('userRole');
+  dispatch({ type: USER_LOGOUT });
+};
+export const checkAuthStatus = () => (dispatch) => {
+  const userInfo = localStorage.getItem('userInfo');
+  if (userInfo) {
+    dispatch({
+      type: USER_LOGIN_SUCCESS,
+      payload: JSON.parse(userInfo),
+    });
+  }
+};

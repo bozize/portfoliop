@@ -2,71 +2,58 @@ import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { userLogin } from '../redux/actions/authActions';
-import { USER_LOGIN_RESET } from '../redux/constants/authConstants';
 
 const LoginPage = () => {
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
-    const dispatch = useDispatch();
-    const navigate = useNavigate();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const { loading, error, userInfo } = useSelector((state) => state.login);
 
-    // Update this line to match the store setup
-    const userLoginState = useSelector((state) => state.login || {});
-    const { loading, error, userInfo, success } = userLoginState;
-
-    const handleSubmit = (e) => {
-      e.preventDefault();
-      dispatch(userLogin({ username, password }));
-    };
-
-    useEffect(() => {
-      console.log('User info:', userInfo); // Debugging line
-      if (success && userInfo) {
-        const role = userInfo.role;
-
-        if (role === 'CLIENT') {
-          navigate('/client');
-        } else if (role === 'FREELANCER') {
-          navigate('/freelancer');
-        }
-
-        dispatch({ type: USER_LOGIN_RESET }); // Reset login state after navigating
+  useEffect(() => {
+    if (userInfo) {
+      if (userInfo.role === 'FREELANCER') {
+        navigate('/freelancer-dashboard');
+      } else if (userInfo.role === 'CLIENT') {
+        navigate('/client-dashboard');
       }
-    }, [success, userInfo, navigate, dispatch]);
+    }
+  }, [userInfo, navigate]);
 
-    return (
-      <div>
-        <h2>Login</h2>
-        <form onSubmit={handleSubmit}>
-          <div>
-            <label>Username</label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-            />
-          </div>
-          <div>
-            <label>Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-          <button type="submit" disabled={loading}>
-            Login
-          </button>
-          {error && <p>{error}</p>}
-        </form>
-      </div>
-    );
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    dispatch(userLogin({ username, password }));
+  };
+
+  return (
+    <div className="loginContainer">
+      <h2>Login</h2>
+      <form className="loginForm" onSubmit={handleSubmit}>
+        <div>
+          <label>Username</label>
+          <input
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+          />
+        </div>
+        <div>
+          <label>Password</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+        </div>
+        <button type="submit" disabled={loading}>
+          Login
+        </button>
+        {error && <p>{error}</p>}
+      </form>
+    </div>
+  );
 };
 
 export default LoginPage;
-
-
-
-  

@@ -1,0 +1,118 @@
+.loginContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: #fafafa;
+}
+
+.loginForm {
+  background-color: white;
+  padding: 2rem;
+  border-radius: 1px;
+  border: 1px solid #dbdbdb;
+  width: 100%;
+  max-width: 350px;
+}
+
+.title {
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: 2.5rem;
+  font-weight: 600;
+  color: #262626;
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.inputGroup {
+  margin-bottom: 0.5rem;
+}
+
+.input {
+  width: 100%;
+  padding: 0.75rem;
+  background-color: #fafafa;
+  border: 1px solid #dbdbdb;
+  border-radius: 3px;
+  font-size: 0.875rem;
+  color: #262626;
+}
+
+.input::placeholder {
+  color: #8e8e8e;
+}
+
+.button {
+  width: 100%;
+  padding: 0.5rem;
+  background-color: #0095f6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 0.5rem;
+}
+
+.button:hover {
+  background-color: #1877f2;
+}
+
+.button:disabled {
+  background-color: #b2dffc;
+  cursor: default;
+}
+
+.error {
+  color: #ed4956;
+  margin-top: 1rem;
+  text-align: center;
+  font-size: 0.875rem;
+}
+
+.orDivider {
+  display: flex;
+  align-items: center;
+  margin: 1rem 0;
+}
+
+.orDivider::before,
+.orDivider::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px solid #dbdbdb;
+}
+
+.orText {
+  padding: 0 1rem;
+  color: #8e8e8e;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.forgotPassword {
+  text-align: center;
+  margin-top: 1rem;
+  font-size: 0.75rem;
+}
+
+.forgotPassword a {
+  color: #00376b;
+  text-decoration: none;
+}
+
+.signUp {
+  text-align: center;
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: white;
+  border: 1px solid #dbdbdb;
+  font-size: 0.875rem;
+}
+
+.signUp a {
+  color: #0095f6;
+  font-weight: 600;
+  text-decoration: none;
+}

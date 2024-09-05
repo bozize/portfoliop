@@ -1,17 +1,22 @@
 // src/redux/store.js
 import { configureStore } from '@reduxjs/toolkit';
-import { freelancerSignupReducer, clientSignupReducer, loginReducer } from './reducers/authReducer';
-import jobCategoriesReducer from './jobcatSlice';
+import clientReducer from './clientSlice';
+import { loginReducer, freelancerSignupReducer, clientSignupReducer } from './reducers/authReducer';
+import freelancerReducer from './freelancerSlice';
+import jobcatReducer from './jobcatSlice';
+import jobReducer from './jobsSlice';  // Import the jobcat reducer
 
-const store = configureStore({
+export const store = configureStore({
   reducer: {
+    client: clientReducer,
+    login: loginReducer,
     freelancerSignup: freelancerSignupReducer,
     clientSignup: clientSignupReducer,
-    login: loginReducer,
-    jobCategories: jobCategoriesReducer,
+    freelancer: freelancerReducer,
+    jobCategories: jobcatReducer,
+    jobs: jobReducer,  // Add this line
+    // ... other reducers
   },
 });
-
-export default store;
-
+export default store
 

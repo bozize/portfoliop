@@ -14,9 +14,8 @@ const ClientSignupPage = () => {
 
   useEffect(() => {
     if (success) {
-      // Redirect to login after successful signup
       navigate('/login');
-      dispatch({ type: CLIENT_SIGNUP_RESET }); // Reset the signup state
+      dispatch({ type: CLIENT_SIGNUP_RESET });
     }
   }, [success, navigate, dispatch]);
 
@@ -30,15 +29,15 @@ const ClientSignupPage = () => {
       <h2>Client Signup</h2>
       <form onSubmit={handleSubmit}>
         <div>
-          <label>username</label>
+          <label>Username</label>
           <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} required />
         </div>
         <div>
-          <label>email</label>
+          <label>Email</label>
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         </div>
         <div>
-          <label>password</label>
+          <label>Password</label>
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         </div>
         <button type="submit" disabled={loading}>Signup</button>

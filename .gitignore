@@ -34,6 +34,8 @@ electron-builder-out/
 
 # Environment and config files
 .env
+.myenv
+
 .env.local
 .env.development.local
 .env.test.local

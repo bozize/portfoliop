@@ -5,13 +5,10 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 
 class Skill(models.Model):
     name = models.CharField(max_length=100)
-    job_categories = models.ManyToManyField('JobCategory', related_name='skills', blank=True)
-    # Rename related_name to avoid conflicts
-    freelancers = models.ManyToManyField('User', related_name='skills_set', blank=True)
+    freelancers = models.ManyToManyField('User', related_name='skills_set', blank=True)  # Related to User
 
     def __str__(self):
         return self.name
-
 class User(AbstractUser):
     class Role(models.TextChoices):
         ADMIN = "ADMIN", "Admin"
@@ -53,12 +50,17 @@ class FreelancerProfile(AbstractProfile):
     bio = models.TextField(blank=True, null=True)
     skills = models.ManyToManyField('Skill', related_name='freelancer_profiles', blank=True)
 
-class ClientProfile(AbstractProfile):
+class ClientProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='client_profile')
     company_name = models.CharField(max_length=255, blank=True, null=True)
-    website = models.URLField(blank=True, null=True)
+    website = models.URLField(blank=True, null=True)  # Make website optional
+    # Add other fields as needed
 
+    def __str__(self):
+        return f"{self.user.username}'s Client Profile"
 class JobCategory(models.Model):
     name = models.CharField(max_length=100)
+    skills = models.ManyToManyField(Skill, related_name='job_categories')  # Many-to-Many with Skill
 
     def __str__(self):
         return self.name

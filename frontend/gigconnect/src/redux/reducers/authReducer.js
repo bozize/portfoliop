@@ -12,6 +12,7 @@ import {
     USER_LOGIN_SUCCESS,
     USER_LOGIN_FAIL,
     USER_LOGIN_RESET,
+    USER_LOGOUT
   } from '../constants/authConstants';
   
   // Initial state for freelancer signup
@@ -62,41 +63,38 @@ import {
   
   // Initial state for login
   // Initial state for login
+  const checkTokenExpiration = () => {
+    const userInfo = localStorage.getItem('userInfo')
+      ? JSON.parse(localStorage.getItem('userInfo'))
+      : null;
+    
+    if (userInfo && userInfo.exp) {
+      const currentTime = Date.now() / 1000;
+      if (currentTime > userInfo.exp) {
+        localStorage.removeItem('userInfo');
+        return null;
+      }
+    }
+    return userInfo;
+  };
+  
   const initialState = {
     loading: false,
-    userInfo: null,
+    userInfo: checkTokenExpiration(),
     error: null,
-    success: false,
   };
   
   export const loginReducer = (state = initialState, action) => {
     switch (action.type) {
       case USER_LOGIN_REQUEST:
-        return {
-          ...state, 
-          loading: true,
-          error: null, // Reset any previous error
-        };
+        return { ...state, loading: true };
       case USER_LOGIN_SUCCESS:
-        console.log('Login success:', action.payload); // Debugging line
-        return {
-          loading: false,
-          userInfo: action.payload, // Store the entire userInfo object
-          success: true, // Set success to true
-          error: null,
-        };
+        return { loading: false, userInfo: action.payload };
       case USER_LOGIN_FAIL:
-        console.error('Login error:', action.payload); // Debugging line
-        return {
-          ...state,
-          loading: false,
-          error: action.payload,
-          success: false, // Ensure success is false
-        };
-      case USER_LOGIN_RESET:
-        return initialState;
+        return { loading: false, error: action.payload };
+      case USER_LOGOUT:
+        return {};
       default:
         return state;
     }
   };
-  

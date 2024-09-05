@@ -14,9 +14,8 @@ const FreelancerSignupPage = () => {
 
   useEffect(() => {
     if (success) {
-      // Redirect to login after successful signup
       navigate('/login');
-      dispatch({ type: FREELANCER_SIGNUP_RESET }); // Reset the signup state
+      dispatch({ type: FREELANCER_SIGNUP_RESET });
     }
   }, [success, navigate, dispatch]);
 

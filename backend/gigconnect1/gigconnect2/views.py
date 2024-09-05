@@ -2,7 +2,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import UserSerializer, UserLoginSerializer, JobCategorySerializer, SkillSerializer, FreelancerProfileSerializer, JobSerializer, JobApplicationSerializer
+from .serializers import UserSerializer, UserLoginSerializer, JobCategorySerializer, SkillSerializer, FreelancerProfileSerializer, JobSerializer, JobApplicationSerializer, ClientProfileSerializer
 from django.contrib.auth import authenticate
 from .models import User, JobCategory, Skill, Job, JobApplication
 from .models import User, FreelancerProfile, ClientProfile
@@ -55,35 +55,26 @@ def login(request):
         username = serializer.validated_data['username']
         password = serializer.validated_data['password']
         user = authenticate(username=username, password=password)
-        if user is None:
-            return Response({"detail": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
-        
-        # Create refresh and access tokens
-        refresh = RefreshToken.for_user(user)
-
-        # Check and create profile if not exists
-        if user.role == User.Role.FREELANCER:
-            profile, created = FreelancerProfile.objects.get_or_create(user=user)
-            if not profile.skills.exists():
-                return Response({
-                    'message': 'Profile created. Please add your skills.',
-                    'refresh': str(refresh),
-                    'access': str(refresh.access_token),
-                    'role': user.role
-                }, status=status.HTTP_200_OK)
-        
-        elif user.role == User.Role.CLIENT:
-            ClientProfile.objects.get_or_create(user=user)
-
-        # Add role information to the response
-        return Response({
-            'refresh': str(refresh),
-            'access': str(refresh.access_token),
-            'role': user.role
-        })
-
+        if user:
+            refresh = RefreshToken.for_user(user)
+            profile_complete = False
+            if user.role == User.Role.FREELANCER:
+                profile, _ = FreelancerProfile.objects.get_or_create(user=user)
+                profile_complete = bool(profile.bio and profile.skills.exists())
+            elif user.role == User.Role.CLIENT:
+                profile, _ = ClientProfile.objects.get_or_create(user=user)
+                profile_complete = bool(profile.company_name)
+            
+            return Response({
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+                'username': user.username,
+                'role': user.role,
+                'profile_complete': profile_complete
+            })
+        else:
+            return Response({'detail': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 @api_view(['GET', 'POST'])
 def job_category_list_create(request):
@@ -211,20 +202,71 @@ def skill_freelancers(request, pk):
 
 """ JOB APPLICATIONS VIEWS"""
 
-@api_view(['GET', 'POST'])
+@api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def job_list_create(request):
-    if request.method == 'GET':
-        jobs = Job.objects.all()
-        serializer = JobSerializer(jobs, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    
-    elif request.method == 'POST':
+def job_create(request):
+    if request.method == 'POST':
+        # Get all job categories
+        job_categories = JobCategory.objects.all()
+        job_category_serializer = JobCategorySerializer(job_categories, many=True)
+
+        # If a category is provided in the request, get related skills
+        category_id = request.data.get('category')
+        if category_id:
+            try:
+                category = JobCategory.objects.get(id=category_id)
+                related_skills = category.skills.all()
+                skill_serializer = SkillSerializer(related_skills, many=True)
+            except JobCategory.DoesNotExist:
+                return Response({'detail': 'Invalid job category'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            skill_serializer = SkillSerializer(Skill.objects.all(), many=True)
+
+        # Create the job
         serializer = JobSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            serializer.save(client=request.user)
+            return Response({
+                'job': serializer.data,
+                'categories': job_category_serializer.data,
+                'skills': skill_serializer.data
+            }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+
+def job_list(request):
+    jobs = Job.objects.all().order_by('-created_at')
+    serializer = JobSerializer(jobs, many=True)
+    return Response(serializer.data)
+
+# You can also add filtering options:
+@api_view(['GET'])
+
+def job_list_filtered(request):
+    jobs = Job.objects.all()
+
+    category = request.query_params.get('category')
+    if category:
+        jobs = jobs.filter(category__id=category)
+
+    skill = request.query_params.get('skill')
+    if skill:
+        jobs = jobs.filter(required_skills__id=skill)
+
+    min_pay = request.query_params.get('minPay')
+    max_pay = request.query_params.get('maxPay')
+    if min_pay:
+        jobs = jobs.filter(pay__gte=min_pay)
+    if max_pay:
+        jobs = jobs.filter(pay__lte=max_pay)
+
+    jobs = jobs.order_by('-created_at')
+
+    serializer = JobSerializer(jobs, many=True)
+    return Response(serializer.data)
+
 
 
 # View for retrieving, updating, and deleting a specific job
@@ -350,3 +392,91 @@ def search_view(request):
     }
 
     return Response(results, status=status.HTTP_200_OK)
+
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def update_client_profile(request):
+    # Ensure the user is authenticated
+    if request.user.is_anonymous:
+        return Response({"detail": "Authentication credentials were not provided."}, status=status.HTTP_401_UNAUTHORIZED)
+
+    # Get or create the client profile for the authenticated user
+    profile, created = ClientProfile.objects.get_or_create(user=request.user)
+
+    if request.method == 'GET':
+        # Serialize and return the profile data
+        serializer = ClientProfileSerializer(profile)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    if request.method == 'POST':
+        # Update the profile with the provided data
+        serializer = ClientProfileSerializer(profile, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)  
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def update_freelancer_profile(request):
+    # Ensure the user is authenticated
+    if request.user.is_anonymous:
+        return Response({"detail": "Authentication credentials were not provided."}, status=status.HTTP_401_UNAUTHORIZED)
+
+    # Get or create the freelancer profile for the authenticated user
+    profile, created = FreelancerProfile.objects.get_or_create(user=request.user)
+
+    if request.method == 'GET':
+        # Serialize and return the profile data
+        serializer = FreelancerProfileSerializer(profile)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    if request.method == 'POST':
+        # Update the profile with the provided data
+        serializer = FreelancerProfileSerializer(profile, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+
+def freelancer_list(request):
+    # Get all users with the FREELANCER role
+    freelancers = User.objects.filter(role=User.Role.FREELANCER)
+
+    # Filter by skill if provided in query params
+    skill_id = request.query_params.get('skill')
+    if skill_id:
+        try:
+            skill = Skill.objects.get(id=skill_id)
+            freelancers = freelancers.filter(skills=skill)
+        except Skill.DoesNotExist:
+            return Response({'detail': 'Skill not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # You can add more filters here as needed
+
+    # Serialize the freelancers
+    serializer = UserSerializer(freelancers, many=True)
+
+    # Get associated FreelancerProfiles
+    freelancer_profiles = FreelancerProfile.objects.filter(user__in=freelancers)
+    profile_serializer = FreelancerProfileSerializer(freelancer_profiles, many=True)
+
+    # Combine user data with profile data
+    combined_data = []
+    for user, profile in zip(serializer.data, profile_serializer.data):
+        combined_data.append({**user, 'profile': profile})
+
+    return Response(combined_data)
+
+@api_view(['GET'])
+
+def skill_list(request):
+    skills = Skill.objects.all()
+    serializer = SkillSerializer(skills, many=True)
+    return Response(serializer.data)
