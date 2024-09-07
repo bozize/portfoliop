@@ -11,13 +11,15 @@ from .views import (
     skill_freelancers,
     job_create,
     job_detail,
-    job_apply,
+    apply_for_job,
     job_applications_list,
     search_view,
     update_freelancer_profile,
     update_client_profile,
     job_list,
     job_list_filtered,
+    client_jobs_list,
+    freelancer_job_applications,
 )
 
 urlpatterns = [
@@ -47,8 +49,10 @@ urlpatterns = [
     path('jobsl/filtered/', job_list_filtered, name='job_list_filtered'),
 
     # Job application-related URLs
-    path('jobs/<int:job_pk>/apply/', job_apply, name='job_apply'),
+    path('jobs/<int:job_id>/apply/', apply_for_job, name='apply_for_job'),
     path('jobs/<int:job_pk>/applications/', job_applications_list, name='job_applications_list'),
+    path('client/jobs/', client_jobs_list, name='client_jobs_list'),
+    path('freelancer/applications/', freelancer_job_applications, name='freelancer_job_applications'),
 
     # Search functionality
     path('search/', search_view, name='search'),

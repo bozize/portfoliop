@@ -22,7 +22,9 @@ export const fetchFreelancerDataThunk = createAsyncThunk(
         },
       });
 
-      // Fetch skills details if needed
+      const freelancerData = response.data;
+
+      // Fetch all skills
       const skillsResponse = await axios.get('http://127.0.0.1:8000/api/skills/', {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -36,8 +38,9 @@ export const fetchFreelancerDataThunk = createAsyncThunk(
       }, {});
 
       // Map freelancer skill IDs to skill objects
-      const freelancerData = response.data;
-      freelancerData.skills = freelancerData.skills.map(id => skillMap[id] || { id, name: 'Unknown Skill' });
+      freelancerData.skills = freelancerData.skills.map(skillId => 
+        skillMap[skillId] || { id: skillId, name: 'Unknown Skill' }
+      );
 
       return freelancerData;
     } catch (error) {
@@ -57,18 +60,28 @@ export const updateFreelancerProfileThunk = createAsyncThunk(
       const token = localStorage.getItem('accessToken');
       if (!token) throw new Error('No token found');
 
-      const response = await axios.post(
+      const dataToSend = {
+        bio: profileData.bio,
+        skill_ids: profileData.skills,
+        job_category_ids: profileData.jobCategories
+      };
+
+      console.log('Sending data to backend:', dataToSend); // Debug log
+
+      const response = await axios.put(
         'http://127.0.0.1:8000/api/profile/freelancer/',
-        profileData,
+        dataToSend,
         {
           headers: {
             Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
           },
         }
       );
 
       return response.data;
     } catch (error) {
+      console.error('Error in updateFreelancerProfileThunk:', error);
       return rejectWithValue({
         message: error.message,
         response: error.response ? error.response.data : null,
@@ -78,14 +91,23 @@ export const updateFreelancerProfileThunk = createAsyncThunk(
   }
 );
 
+export const fetchJobCategoriesThunk = createAsyncThunk(
+  'freelancer/fetchJobCategories',
+  async () => {
+    const response = await axios.get('http://127.0.0.1:8000/api/categories/');
+    return response.data;
+  }
+);
+
 const freelancerSlice = createSlice({
   name: 'freelancer',
   initialState: {
-    profile: { bio: '', skills: [], name: '' },
+    profile: { bio: '', skills: [], jobCategories: [], name: '' },
     status: 'idle',
     error: null,
     profileComplete: false,
     availableSkills: [],
+    availableJobCategories: [],
   },
   reducers: {
     setProfileComplete: (state, action) => {
@@ -110,11 +132,14 @@ const freelancerSlice = createSlice({
       .addCase(fetchFreelancerDataThunk.fulfilled, (state, action) => {
         state.status = 'succeeded';
         state.profile = action.payload;
-        state.profileComplete = action.payload.bio && action.payload.skills.length > 0;
+        state.profileComplete = action.payload.bio && action.payload.skills.length > 0 && action.payload.job_categories.length > 0;
       })
       .addCase(fetchFreelancerDataThunk.rejected, (state, action) => {
         state.status = 'failed';
         state.error = action.payload;
+      })
+      .addCase(fetchJobCategoriesThunk.fulfilled, (state, action) => {
+        state.availableJobCategories = action.payload;
       });
   },
 });

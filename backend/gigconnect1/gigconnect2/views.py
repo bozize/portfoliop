@@ -139,7 +139,7 @@ def skill_detail(request, pk):
     except Skill.DoesNotExist:
         return Response({'detail': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    freelancers = User.objects.filter(role=User.Role.FREELANCER, skills=skill).distinct()
+    freelancers = User.objects.filter(role=User.Role.FREELANCER, freelancerprofile__skills=skill).distinct()
 
     response_data = {
         'skill': SkillSerializer(skill).data,
@@ -267,20 +267,34 @@ def job_list_filtered(request):
     serializer = JobSerializer(jobs, many=True)
     return Response(serializer.data)
 
+import logging
+import traceback
 
+logger = logging.getLogger(__name__)
 
 # View for retrieving, updating, and deleting a specific job
 @api_view(['GET', 'PUT', 'DELETE'])
-@permission_classes([IsAuthenticated])
 def job_detail(request, pk):
+    logger.info(f"Attempting to retrieve job with pk: {pk}")
     try:
         job = Job.objects.get(pk=pk)
+        logger.info(f"Job found: {job}")
     except Job.DoesNotExist:
-        return Response({'detail': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+        logger.warning(f"Job with pk {pk} not found")
+        return Response({'detail': 'Job not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        logger.error(f"Unexpected error in job_detail view: {str(e)}")
+        logger.error(traceback.format_exc())
+        return Response({'detail': 'An unexpected error occurred'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     if request.method == 'GET':
-        serializer = JobSerializer(job)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        try:
+            serializer = JobSerializer(job)
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error(f"Error serializing job data: {str(e)}")
+            logger.error(traceback.format_exc())
+            return Response({'detail': 'Error processing job data'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     elif request.method == 'PUT':
         if request.user != job.client:
@@ -301,36 +315,59 @@ def job_detail(request, pk):
 
 
 # View for applying to a job
-@api_view(['POST'])
+@api_view(['GET', 'POST'])
+def apply_for_job(request, job_id):
+    if request.method == 'GET':
+        try:
+            job = Job.objects.get(id=job_id)
+        except Job.DoesNotExist:
+            return Response({'error': 'Job not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        applications = JobApplication.objects.filter(job=job)
+        serializer = JobApplicationSerializer(applications, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    elif request.method == 'POST':
+        user = request.user
+        data = request.data.copy()  # Make a mutable copy of the request data
+        data['job'] = job_id
+        data['user'] = user.id
+
+        serializer = JobApplicationSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+@api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def job_apply(request, job_pk):
-    try:
-        job = Job.objects.get(pk=job_pk)
-    except Job.DoesNotExist:
-        return Response({'detail': 'Job not found'}, status=status.HTTP_404_NOT_FOUND)
+def client_jobs_list(request):
+    if request.user.role != User.Role.CLIENT:
+        return Response({'detail': 'You do not have permission to view this.'}, status=status.HTTP_403_FORBIDDEN)
 
-    # Check if the freelancer has already applied for the job
-    if JobApplication.objects.filter(job=job, freelancer=request.user).exists():
-        return Response({'detail': 'You have already applied for this job.'}, status=status.HTTP_400_BAD_REQUEST)
+    jobs = Job.objects.filter(client=request.user)
+    serializer = JobSerializer(jobs, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
-    serializer = JobApplicationSerializer(data=request.data, context={'request': request})
-    if serializer.is_valid():
-        serializer.save(job=job)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def freelancer_job_applications(request):
+    applications = JobApplication.objects.filter(user=request.user).select_related('job')
+    serializer = JobApplicationSerializer(applications, many=True)
+    return Response(serializer.data)
+
 
 
 # View for listing all job applications for a specific job
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
 def job_applications_list(request, job_pk):
     try:
         job = Job.objects.get(pk=job_pk)
     except Job.DoesNotExist:
         return Response({'detail': 'Job not found'}, status=status.HTTP_404_NOT_FOUND)
-
-    if request.user != job.client:
-        return Response({'detail': 'You do not have permission to view applications for this job.'}, status=status.HTTP_403_FORBIDDEN)
 
     applications = JobApplication.objects.filter(job=job)
     serializer = JobApplicationSerializer(applications, many=True)
@@ -395,51 +432,43 @@ def search_view(request):
 
 
 
-@api_view(['GET', 'POST'])
+@api_view(['GET', 'PUT'])
 @permission_classes([IsAuthenticated])
 def update_client_profile(request):
-    # Ensure the user is authenticated
-    if request.user.is_anonymous:
-        return Response({"detail": "Authentication credentials were not provided."}, status=status.HTTP_401_UNAUTHORIZED)
-
-    # Get or create the client profile for the authenticated user
-    profile, created = ClientProfile.objects.get_or_create(user=request.user)
+    try:
+        profile = ClientProfile.objects.get(user=request.user)
+    except ClientProfile.DoesNotExist:
+        profile = ClientProfile(user=request.user)
 
     if request.method == 'GET':
-        # Serialize and return the profile data
         serializer = ClientProfileSerializer(profile)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    
-    if request.method == 'POST':
-        # Update the profile with the provided data
+        return Response(serializer.data)
+
+    elif request.method == 'PUT':
         serializer = ClientProfileSerializer(profile, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)  
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['GET', 'POST'])
+@api_view(['GET', 'PUT'])
 @permission_classes([IsAuthenticated])
 def update_freelancer_profile(request):
-    # Ensure the user is authenticated
-    if request.user.is_anonymous:
-        return Response({"detail": "Authentication credentials were not provided."}, status=status.HTTP_401_UNAUTHORIZED)
-
-    # Get or create the freelancer profile for the authenticated user
-    profile, created = FreelancerProfile.objects.get_or_create(user=request.user)
+    try:
+        profile = FreelancerProfile.objects.get(user=request.user)
+    except FreelancerProfile.DoesNotExist:
+        profile = FreelancerProfile.objects.create(user=request.user)
 
     if request.method == 'GET':
-        # Serialize and return the profile data
         serializer = FreelancerProfileSerializer(profile)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    
-    if request.method == 'POST':
-        # Update the profile with the provided data
+        return Response(serializer.data)
+
+    elif request.method == 'PUT':
         serializer = FreelancerProfileSerializer(profile, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

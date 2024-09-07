@@ -79,8 +79,8 @@ import {
   };
   
   const initialState = {
+    userInfo: null,
     loading: false,
-    userInfo: checkTokenExpiration(),
     error: null,
   };
   
@@ -91,9 +91,9 @@ import {
       case USER_LOGIN_SUCCESS:
         return { loading: false, userInfo: action.payload };
       case USER_LOGIN_FAIL:
-        return { loading: false, error: action.payload };
+        return { ...state, loading: false, error: action.payload };
       case USER_LOGOUT:
-        return {};
+        return initialState;
       default:
         return state;
     }

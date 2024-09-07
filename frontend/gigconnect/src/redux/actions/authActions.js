@@ -1,5 +1,6 @@
 // src/redux/actions/authActions.js
 import axios from 'axios';
+
 import {
   USER_LOGIN_REQUEST,
   USER_LOGIN_SUCCESS,
@@ -126,4 +127,28 @@ export const checkAuthStatus = () => (dispatch) => {
       payload: JSON.parse(userInfo),
     });
   }
+};
+
+export const setAuthToken = (token) => (dispatch) => {
+  localStorage.setItem('authToken', token);
+  // Dispatch action to set auth state in Redux store
+  dispatch({ type: 'AUTH_SET_TOKEN', payload: token });
+};
+
+export const setCredentials = (data) => (dispatch) => {
+  dispatch({
+    type: USER_LOGIN_SUCCESS,
+    payload: {
+      ...data.user,
+      token: data.token
+    }
+  });
+};
+
+
+export const setUserInfo = (userInfo) => (dispatch) => {
+  dispatch({
+    type: USER_LOGIN_SUCCESS,
+    payload: userInfo,
+  });
 };

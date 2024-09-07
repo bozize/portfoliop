@@ -11,7 +11,7 @@ from .models import ClientProfile
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['username', 'email', 'password', 'role']
+        fields = ['username', 'email', 'password', 'role', 'id']
         extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
@@ -45,65 +45,57 @@ class JobCategorySerializer(serializers.ModelSerializer):
 
 # Serializer for FreelancerProfile
 class FreelancerProfileSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
-    user_id = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(),
-        source='user',
-        write_only=True
-    )
-    skills = serializers.PrimaryKeyRelatedField(
-        many=True,
-        queryset=Skill.objects.all()
-    )
-    job_categories = serializers.SerializerMethodField()
+    skills = serializers.PrimaryKeyRelatedField(many=True, queryset=Skill.objects.all())
+    job_categories = serializers.PrimaryKeyRelatedField(many=True, queryset=JobCategory.objects.all())
 
     class Meta:
         model = FreelancerProfile
-        fields = ['id', 'user', 'user_id', 'bio', 'skills', 'job_categories']
+        fields = ['bio', 'skills', 'job_categories']
 
-    def get_job_categories(self, obj):
-        # Fetch job categories based on skills
-        job_categories = JobCategory.objects.filter(skills__in=obj.skills.all()).distinct()
-        return JobCategorySerializer(job_categories, many=True).data
-
-    def update(self, instance, validated_data):
-        # Update skills if provided in the request
-        skills_data = self.context['request'].data.get('skills', [])
-        if skills_data:
-            instance.skills.set(skills_data)  # Assuming skills_data contains IDs
-        return super().update(instance, validated_data)
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['skills'] = [skill.id for skill in instance.skills.all()]
+        representation['job_categories'] = [category.id for category in instance.job_categories.all()]
+        return representation
 
 class JobSerializer(serializers.ModelSerializer):
+    category = serializers.StringRelatedField()
+    required_skills = serializers.StringRelatedField(many=True)
+    client = serializers.StringRelatedField()
+
     class Meta:
         model = Job
-        fields = ['id', 'title', 'description', 'pay', 'category', 'required_skills', 'client']
-        read_only_fields = ['client']
+        fields = ['id', 'title', 'description', 'pay', 'category', 'required_skills', 'client', 'created_at', 'updated_at']
 
-    def create(self, validated_data):
-        required_skills = validated_data.pop('required_skills', [])
-        job = Job.objects.create(**validated_data)
-        job.required_skills.set(required_skills)
-        return job
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['title'] = representation.get('title', '')
+        representation['description'] = representation.get('description', '')
+        representation['pay'] = representation.get('pay', 0)
+        representation['category'] = representation.get('category', '')
+        representation['required_skills'] = representation.get('required_skills', [])
+        representation['client'] = representation.get('client', '')
+        representation['created_at'] = representation.get('created_at', '')
+        representation['updated_at'] = representation.get('updated_at', '')
+        return representation
 
 class JobApplicationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = JobApplication
-        fields = '__all__'
-        read_only_fields = ['freelancer', 'created_at']
-
-    def create(self, validated_data):
-        validated_data['freelancer'] = self.context['request'].user
-        return super().create(validated_data)
-    
+       class Meta:
+           model = JobApplication
+           fields = '__all__'  # En
 
 
 
 class ClientProfileSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+
     class Meta:
         model = ClientProfile
-        fields = ['company_name', 'website']
+        fields = ['id', 'user', 'company_name', 'website']
+        read_only_fields = ['id', 'user']
 
-    def validate(self, data):
-        if 'company_name' not in data or not data['company_name']:
-            raise serializers.ValidationError("Company name is required.")
-        return data
+    def update(self, instance, validated_data):
+        instance.company_name = validated_data.get('company_name', instance.company_name)
+        instance.website = validated_data.get('website', instance.website)
+        instance.save()
+        return instance

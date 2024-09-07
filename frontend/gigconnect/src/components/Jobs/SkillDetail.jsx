@@ -37,7 +37,9 @@ const SkillDetail = () => {
         <h2>Freelancers</h2>
         {freelancers.length > 0 ? (
           <ul>
-            {freelancers.map(freelancer => <li key={freelancer.id}>{freelancer.name}</li>)}
+            {freelancers.map(freelancer => (
+              <li key={freelancer.id}>{freelancer.username}</li>
+            ))}
           </ul>
         ) : (
           <p>No freelancers available</p>

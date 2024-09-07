@@ -3,6 +3,9 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 
+
+
+
 class Skill(models.Model):
     name = models.CharField(max_length=100)
     freelancers = models.ManyToManyField('User', related_name='skills_set', blank=True)  # Related to User
@@ -46,9 +49,14 @@ class AbstractProfile(models.Model):
     class Meta:
         abstract = True
 
-class FreelancerProfile(AbstractProfile):
-    bio = models.TextField(blank=True, null=True)
-    skills = models.ManyToManyField('Skill', related_name='freelancer_profiles', blank=True)
+class FreelancerProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='freelancer_profile')
+    bio = models.TextField(blank=True)
+    skills = models.ManyToManyField('Skill', blank=True)
+    job_categories = models.ManyToManyField('JobCategory', blank=True)  # Add this line
+
+    def __str__(self):
+        return f"{self.user.username}'s profile"
 
 class ClientProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='client_profile')
@@ -90,14 +98,18 @@ class Job(models.Model):
         return self.title
 
 # Model for Job Application
+# models.py
+
+
 class JobApplication(models.Model):
-    freelancer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='applications')
-    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name='applications')
+    job = models.ForeignKey(Job, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
     cover_letter = models.TextField()
     proposed_pay = models.DecimalField(max_digits=10, decimal_places=2)
-    estimated_completion_time = models.PositiveIntegerField(help_text="Estimated time to complete the job in days")
-    attachments = models.FileField(upload_to='job_applications/attachments/', blank=True, null=True)
-    applied_at = models.DateTimeField(auto_now_add=True)
+    estimated_completion_time = models.CharField(max_length=100)
+    status = models.CharField(max_length=50, default='pending')  # Add default value
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.freelancer.username} - {self.job.title}"
+        return f"{self.user.username} - {self.job.title}"

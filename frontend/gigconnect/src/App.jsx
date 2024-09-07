@@ -1,26 +1,40 @@
 // src/App.jsx
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { BrowserRouter as Router } from 'react-router-dom';
 import AppRoutes from './routes';
-import { logout } from './redux/actions/authActions';
+import { logout, setCredentials } from './redux/actions/authActions';
+import * as jwtDecode from 'jwt-decode';
 
 function App() {
   const dispatch = useDispatch();
 
   useEffect(() => {
-    const checkTokenExpiration = () => {
-      const userInfo = JSON.parse(localStorage.getItem('userInfo'));
-      if (userInfo && userInfo.exp) {
-        const currentTime = Date.now() / 1000;
-        if (currentTime > userInfo.exp) {
+    const initializeAuth = () => {
+      const token = localStorage.getItem('accessToken');
+      if (token) {
+        try {
+          const decodedToken = jwtDecode.jwtDecode(token);
+          const currentTime = Date.now() / 1000;
+          
+          if (decodedToken.exp > currentTime) {
+            const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+            dispatch(setCredentials({
+              token: token,
+              user: {...userInfo, token: token}
+            }));
+          } else {
+            dispatch(logout());
+          }
+        } catch (error) {
+          console.error('Error decoding token:', error);
           dispatch(logout());
         }
       }
     };
 
-    checkTokenExpiration();
-    const intervalId = setInterval(checkTokenExpiration, 60000); // Check every minute
+    initializeAuth();
+    const intervalId = setInterval(initializeAuth, 60000); // Check every minute
 
     return () => clearInterval(intervalId);
   }, [dispatch]);

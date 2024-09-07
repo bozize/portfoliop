@@ -23,25 +23,32 @@ export const fetchClientDataThunk = createAsyncThunk(
 
 export const updateClientProfileThunk = createAsyncThunk(
   'client/updateProfile',
-  async (profileData, { dispatch, rejectWithValue }) => {
+  async (profileData, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem('accessToken');
       if (!token) throw new Error('No token found');
 
-      const response = await axios.post(
+      console.log('Sending data to backend:', profileData); // Debug log
+
+      const response = await axios.put(
         'http://127.0.0.1:8000/api/profile/client/',
         profileData,
         {
           headers: {
             Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
           },
         }
       );
 
-      dispatch(setProfileComplete(true));
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data || error.message);
+      console.error('Error in updateClientProfileThunk:', error);
+      return rejectWithValue({
+        message: error.message,
+        response: error.response ? error.response.data : null,
+        status: error.response ? error.response.status : null,
+      });
     }
   }
 );
@@ -49,7 +56,7 @@ export const updateClientProfileThunk = createAsyncThunk(
 const clientSlice = createSlice({
   name: 'client',
   initialState: {
-    profile: { company_name: '', website: '', user: {} },
+    profile: { company_name: '', website: '', user: null },
     status: 'idle',
     error: null,
     profileComplete: false,
@@ -76,6 +83,9 @@ const clientSlice = createSlice({
       .addCase(updateClientProfileThunk.fulfilled, (state, action) => {
         state.profile = action.payload;
         state.profileComplete = true;
+      })
+      .addCase(updateClientProfileThunk.rejected, (state, action) => {
+        console.error('Update failed:', action.payload);
       });
   },
 });
