@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchJobDetails, selectJobDetails, selectJobStatus, selectJobError, applyForJob, selectApplicationStatus, selectApplicationError } from '../../redux/jobsSlice';
@@ -17,6 +17,7 @@ const JobDetails = () => {
   const [coverLetter, setCoverLetter] = useState('');
   const [proposedPay, setProposedPay] = useState('');
   const [estimatedCompletionTime, setEstimatedCompletionTime] = useState('');
+  const [estimatedCompletionTimeUnit, setEstimatedCompletionTimeUnit] = useState('days');
 
   useEffect(() => {
     if (!jobDetails) {
@@ -42,8 +43,9 @@ const JobDetails = () => {
           jobId: id,
           coverLetter,
           proposedPay,
-          estimatedCompletionTime,
-          status: 'pending'  // Include the status field
+          estimatedCompletionTime: parseInt(estimatedCompletionTime, 10),
+          estimatedCompletionTimeUnit,
+          status: 'pending'
         })).unwrap();
         alert('Application submitted successfully!');
         setShowApplicationForm(false);
@@ -93,13 +95,24 @@ const JobDetails = () => {
             placeholder="Proposed Pay"
             required
           />
-          <input
-            type="text"
-            value={estimatedCompletionTime}
-            onChange={(e) => setEstimatedCompletionTime(e.target.value)}
-            placeholder="Estimated Completion Time"
-            required
-          />
+          <div>
+            <input
+              type="number"
+              value={estimatedCompletionTime}
+              onChange={(e) => setEstimatedCompletionTime(e.target.value)}
+              placeholder="Estimated Completion Time"
+              required
+              min="1"
+            />
+            <select
+              value={estimatedCompletionTimeUnit}
+              onChange={(e) => setEstimatedCompletionTimeUnit(e.target.value)}
+              required
+            >
+              <option value="days">Days</option>
+              <option value="months">Months</option>
+            </select>
+          </div>
           <button type="submit" disabled={applicationStatus === 'loading'}>
             {applicationStatus === 'loading' ? 'Submitting...' : 'Submit Application'}
           </button>

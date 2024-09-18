@@ -45,18 +45,29 @@ class JobCategorySerializer(serializers.ModelSerializer):
 
 # Serializer for FreelancerProfile
 class FreelancerProfileSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
     skills = serializers.PrimaryKeyRelatedField(many=True, queryset=Skill.objects.all())
     job_categories = serializers.PrimaryKeyRelatedField(many=True, queryset=JobCategory.objects.all())
 
     class Meta:
         model = FreelancerProfile
-        fields = ['bio', 'skills', 'job_categories']
+        fields = ['id', 'user', 'bio', 'skills', 'job_categories']
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation['skills'] = [skill.id for skill in instance.skills.all()]
         representation['job_categories'] = [category.id for category in instance.job_categories.all()]
         return representation
+
+class FreelancerProfileDetailSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    skills = SkillSerializer(many=True, read_only=True)
+    job_categories = JobCategorySerializer(many=True, read_only=True)
+
+    class Meta:
+        model = FreelancerProfile
+        fields = ['id', 'user', 'bio', 'skills', 'job_categories']
+
 
 class JobSerializer(serializers.ModelSerializer):
     category = serializers.StringRelatedField()
@@ -80,9 +91,17 @@ class JobSerializer(serializers.ModelSerializer):
         return representation
 
 class JobApplicationSerializer(serializers.ModelSerializer):
-       class Meta:
-           model = JobApplication
-           fields = '__all__'  # En
+    estimated_completion_time_display = serializers.CharField(source='get_estimated_completion_time_display', read_only=True)
+    job_title = serializers.CharField(source='job.title', read_only=True)
+
+    class Meta:
+        model = JobApplication
+        fields = ['id', 'job', 'user', 'job_title', 'cover_letter', 'proposed_pay', 'estimated_completion_time', 
+                  'estimated_completion_time_unit', 'estimated_completion_time_display', 'status', 'created_at', 'updated_at']
+    def validate_title(self, value):
+        if not value or value.isdigit():
+            raise serializers.ValidationError("Please provide a descriptive title for your application.")
+        return value
 
 
 

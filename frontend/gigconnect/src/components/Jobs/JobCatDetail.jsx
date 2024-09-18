@@ -1,69 +1,72 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { fetchJobCategoryDetails } from '../../apis/jobcatAPI';
+import { filteredFreelancers } from '../../redux/freelancerSlice';
+import FreelancerItem from './FreelancerItem';
 
 const JobCategoryDetail = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [jobCategoryDetails, setJobCategoryDetails] = useState(null);
   const [error, setError] = useState(null);
+  const { filteredFreelancers: freelancers, status: freelancersStatus } = useSelector(state => state.freelancer);
 
   useEffect(() => {
     const getJobCategoryDetails = async () => {
       try {
         const data = await fetchJobCategoryDetails(id);
         setJobCategoryDetails(data);
+        dispatch(filteredFreelancers(id));
       } catch (error) {
         setError('No job category details available.');
       }
     };
 
-    getJobCategoryDetails();
-  }, [id]);
+    if (id && id !== 'undefined') {
+      getJobCategoryDetails();
+    } else {
+      setError('Invalid job category ID.');
+    }
+  }, [id, dispatch]);
 
   if (error) {
-    return <div>{error}</div>;
+    return <div className="text-red-500">{error}</div>;
   }
 
-  if (!jobCategoryDetails) {
+  if (!jobCategoryDetails || freelancersStatus === 'loading') {
     return <div>Loading...</div>;
   }
 
-  const { job_category = {}, skills = [], freelancers = [] } = jobCategoryDetails;
-
-  const handleSkillClick = (skillId) => {
-    navigate(`/skills/${skillId}/`);
-  };
-
   return (
-    <div>
-      <h1>{job_category.name || 'No name available'}</h1>
-      <section>
-        <h2>Skills</h2>
-        {skills.length > 0 ? (
-          <ul>
-            {skills.map(skill => (
-              <li key={skill.id} onClick={() => handleSkillClick(skill.id)} style={{ cursor: 'pointer' }}>
-                {skill.name}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>No skills available</p>
-        )}
-      </section>
-      <section>
-        <h2>Freelancers</h2>
-        {freelancers.length > 0 ? (
-          <ul>
-            {freelancers.map(freelancer => <li key={freelancer.id}>{freelancer.name}</li>)}
-          </ul>
-        ) : (
-          <p>No freelancers available</p>
-        )}
-      </section>
-    </div>
+    <section>
+      <h2 className="text-2xl font-semibold mb-4">{jobCategoryDetails.name}</h2>
+      <p className="mb-4">{jobCategoryDetails.description}</p>
+      
+      <h3 className="text-xl font-semibold mb-4">Freelancers in this Category</h3>
+      {freelancers && freelancers.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {freelancers.map(freelancer => (
+            <FreelancerItem key={freelancer.id} freelancer={freelancer} />
+          ))}
+        </div>
+      ) : (
+        <p>No freelancers available for this category.</p>
+      )}
+    </section>
   );
 };
 
 export default JobCategoryDetail;
+
+
+
+
+
+
+
+
+
+
+
+

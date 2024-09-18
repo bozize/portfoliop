@@ -2,7 +2,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import UserSerializer, UserLoginSerializer, JobCategorySerializer, SkillSerializer, FreelancerProfileSerializer, JobSerializer, JobApplicationSerializer, ClientProfileSerializer
+from .serializers import UserSerializer, UserLoginSerializer, JobCategorySerializer, SkillSerializer, FreelancerProfileSerializer, JobSerializer, JobApplicationSerializer, ClientProfileSerializer, FreelancerProfileDetailSerializer
 from django.contrib.auth import authenticate
 from .models import User, JobCategory, Skill, Job, JobApplication
 from .models import User, FreelancerProfile, ClientProfile
@@ -27,7 +27,7 @@ def signup_client(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     elif request.method == 'GET':
-        # This will return all users with the 'CLIENT' role
+        
         clients = User.objects.filter(role=User.Role.CLIENT)
         serializer = UserSerializer(clients, many=True)
         return Response(serializer.data)
@@ -84,7 +84,7 @@ def job_category_list_create(request):
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method == 'POST':
-        # Ensure only Admin can create a job category
+        
         if request.user.role != User.Role.ADMIN:
             return Response({"detail": "You do not have permission to perform this action."}, status=status.HTTP_403_FORBIDDEN)
         
@@ -122,7 +122,7 @@ def skill_list_create(request):
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method == 'POST':
-        # Ensure only Admin can create a skill
+       
         if request.user.role != User.Role.ADMIN:
             return Response({"detail": "You do not have permission to perform this action."}, status=status.HTTP_403_FORBIDDEN)
         
@@ -137,65 +137,31 @@ def skill_detail(request, pk):
     try:
         skill = Skill.objects.get(pk=pk)
     except Skill.DoesNotExist:
-        return Response({'detail': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(status=status.HTTP_404_NOT_FOUND)
 
-    freelancers = User.objects.filter(role=User.Role.FREELANCER, freelancerprofile__skills=skill).distinct()
-
-    response_data = {
+    freelancers = User.objects.filter(role=User.Role.FREELANCER, freelancer_profile__skills=skill).distinct()
+    
+    serializer = UserSerializer(freelancers, many=True)
+    return Response({
         'skill': SkillSerializer(skill).data,
-        'freelancers': UserSerializer(freelancers, many=True).data
-    }
+        'freelancers': serializer.data
+    })
 
-    return Response(response_data, status=status.HTTP_200_OK)
-
-@api_view(['GET'])
-def job_category_skills(request, pk):
-    try:
-        job_category = JobCategory.objects.get(pk=pk)
-    except JobCategory.DoesNotExist:
-        return Response({'detail': 'Job category not found'}, status=status.HTTP_404_NOT_FOUND)
-
-    skills = job_category.skills.all()
-    serializer = SkillSerializer(skills, many=True)
-    return Response(serializer.data, status=status.HTTP_200_OK)
-
-@api_view(['GET'])
-def job_category_freelancers(request, pk):
-    try:
-        job_category = JobCategory.objects.get(pk=pk)
-    except JobCategory.DoesNotExist:
-        return Response({'detail': 'Job category not found'}, status=status.HTTP_404_NOT_FOUND)
-
-    # Get all skills related to the job category
-    skills = job_category.skills.all()
-
-    # Get freelancers who have any of these skills
-    freelancers = FreelancerProfile.objects.filter(skills__in=skills).distinct()
-
-    # Serialize the freelancers
-    serializer = FreelancerProfileSerializer(freelancers, many=True)
-    return Response(serializer.data, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
 def skill_freelancers(request, pk):
-    """
-    Retrieve freelancers who possess the specified skill.
-
-    :param request: The HTTP request object.
-    :param pk: The primary key of the Skill object.
-    :return: A Response object containing the list of freelancers.
-    """
+    
     try:
-        # Get the skill based on the primary key
+       
         skill = Skill.objects.get(pk=pk)
     except Skill.DoesNotExist:
-        # Return a 404 error if the skill is not found
+        
         return Response({'detail': 'Skill not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    # Retrieve freelancers who have the specified skill
+    
     freelancers = User.objects.filter(role=User.Role.FREELANCER, skills=skill).distinct()
 
-    # Serialize the freelancers' data
+    
     serializer = UserSerializer(freelancers, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -206,11 +172,11 @@ def skill_freelancers(request, pk):
 @permission_classes([IsAuthenticated])
 def job_create(request):
     if request.method == 'POST':
-        # Get all job categories
+        
         job_categories = JobCategory.objects.all()
         job_category_serializer = JobCategorySerializer(job_categories, many=True)
 
-        # If a category is provided in the request, get related skills
+        
         category_id = request.data.get('category')
         if category_id:
             try:
@@ -222,7 +188,7 @@ def job_create(request):
         else:
             skill_serializer = SkillSerializer(Skill.objects.all(), many=True)
 
-        # Create the job
+       
         serializer = JobSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save(client=request.user)
@@ -241,7 +207,7 @@ def job_list(request):
     serializer = JobSerializer(jobs, many=True)
     return Response(serializer.data)
 
-# You can also add filtering options:
+
 @api_view(['GET'])
 
 def job_list_filtered(request):
@@ -272,7 +238,7 @@ import traceback
 
 logger = logging.getLogger(__name__)
 
-# View for retrieving, updating, and deleting a specific job
+
 @api_view(['GET', 'PUT', 'DELETE'])
 def job_detail(request, pk):
     logger.info(f"Attempting to retrieve job with pk: {pk}")
@@ -314,7 +280,7 @@ def job_detail(request, pk):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-# View for applying to a job
+
 @api_view(['GET', 'POST'])
 def apply_for_job(request, job_id):
     if request.method == 'GET':
@@ -329,7 +295,7 @@ def apply_for_job(request, job_id):
     
     elif request.method == 'POST':
         user = request.user
-        data = request.data.copy()  # Make a mutable copy of the request data
+        data = request.data.copy()  #
         data['job'] = job_id
         data['user'] = user.id
 
@@ -361,7 +327,7 @@ def freelancer_job_applications(request):
 
 
 
-# View for listing all job applications for a specific job
+
 @api_view(['GET'])
 def job_applications_list(request, job_pk):
     try:
@@ -379,10 +345,10 @@ def job_applications_list(request, job_pk):
 @api_view(['GET', 'POST'])
 def search_view(request):
     if request.method == 'GET':
-        # Extract search keyword from query parameters
+        
         keyword = request.query_params.get('q', None)
     elif request.method == 'POST':
-        # Extract search keyword from request data
+        
         keyword = request.data.get('q', None)
     else:
         return Response({'detail': 'Method not allowed.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
@@ -390,7 +356,7 @@ def search_view(request):
     if not keyword:
         return Response({'detail': 'Please provide a search keyword.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Search in Jobs
+    
     jobs = Job.objects.filter(
         Q(title__icontains=keyword) |
         Q(description__icontains=keyword) |
@@ -399,13 +365,13 @@ def search_view(request):
     ).distinct()
     job_serializer = JobSerializer(jobs, many=True)
 
-    # Search in Skills
+    
     skills = Skill.objects.filter(
         Q(name__icontains=keyword)
     ).distinct()
     skill_serializer = SkillSerializer(skills, many=True)
 
-    # Search in Freelancers (Users with the role 'FREELANCER')
+    
     freelancers = User.objects.filter(
         Q(role=User.Role.FREELANCER),
         Q(username__icontains=keyword) |
@@ -414,13 +380,13 @@ def search_view(request):
     ).distinct()
     freelancer_serializer = UserSerializer(freelancers, many=True)
 
-    # Search in Job Categories
+    
     job_categories = JobCategory.objects.filter(
         Q(name__icontains=keyword)
     ).distinct()
     job_category_serializer = JobCategorySerializer(job_categories, many=True)
 
-    # Combine results
+    
     results = {
         'jobs': job_serializer.data,
         'skills': skill_serializer.data,
@@ -452,6 +418,55 @@ def update_client_profile(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+
+
+
+@api_view(['GET'])
+def filtered_freelancers(request):
+    category_id = request.query_params.get('category')
+
+    if not category_id or category_id == 'undefined':
+        return Response({"error": "Valid category ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        category_id = int(category_id)
+    except ValueError:
+        return Response({"error": "Invalid category ID"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        category = JobCategory.objects.get(id=category_id)
+    except JobCategory.DoesNotExist:
+        return Response({"error": "Category not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    freelancers = FreelancerProfile.objects.filter(job_categories=category).select_related('user').prefetch_related('skills', 'job_categories')
+    for freelancer in freelancers:
+        print(f"Freelancer: {freelancer.user.username}")
+        print(f"Skills: {list(freelancer.skills.values('id', 'name'))}")
+        print(f"Job Categories: {list(freelancer.job_categories.values('id', 'name'))}")
+
+    serializer = FreelancerProfileDetailSerializer(freelancers, many=True)
+    return Response(serializer.data)
+
+
+
+@api_view(['GET'])
+def freelancer_detail(request, pk):
+    try:
+        freelancer = FreelancerProfile.objects.get(pk=pk)
+    except FreelancerProfile.DoesNotExist:
+        return Response(status=404)
+
+    serializer = FreelancerProfileDetailSerializer(freelancer)
+    return Response(serializer.data)
+
+@api_view(['GET'])
+def freelancer_list(request):
+    freelancers = FreelancerProfile.objects.all()
+    serializer = FreelancerProfileSerializer(freelancers, many=True)
+    return Response(serializer.data)
+
+
+
 @api_view(['GET', 'PUT'])
 @permission_classes([IsAuthenticated])
 def update_freelancer_profile(request):
@@ -469,16 +484,21 @@ def update_freelancer_profile(request):
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            
+            error_messages = {}
+            for field, errors in serializer.errors.items():
+                error_messages[field] = str(errors[0])
+            return Response({"errors": error_messages}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET'])
 
 def freelancer_list(request):
-    # Get all users with the FREELANCER role
+    
     freelancers = User.objects.filter(role=User.Role.FREELANCER)
 
-    # Filter by skill if provided in query params
+    
     skill_id = request.query_params.get('skill')
     if skill_id:
         try:
@@ -487,16 +507,16 @@ def freelancer_list(request):
         except Skill.DoesNotExist:
             return Response({'detail': 'Skill not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    # You can add more filters here as needed
+    
 
-    # Serialize the freelancers
+    
     serializer = UserSerializer(freelancers, many=True)
 
-    # Get associated FreelancerProfiles
+   
     freelancer_profiles = FreelancerProfile.objects.filter(user__in=freelancers)
     profile_serializer = FreelancerProfileSerializer(freelancer_profiles, many=True)
 
-    # Combine user data with profile data
+    
     combined_data = []
     for user, profile in zip(serializer.data, profile_serializer.data):
         combined_data.append({**user, 'profile': profile})

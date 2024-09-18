@@ -1,5 +1,6 @@
 // src/App.jsx
 import { useEffect } from 'react';
+
 import { useDispatch } from 'react-redux';
 import { BrowserRouter as Router } from 'react-router-dom';
 import AppRoutes from './routes';

@@ -8,6 +8,9 @@ lerna-debug.log*
 *.sql
 *.sqlite
 
+
+frontend/gigconnect/postcss.config.js
+frontend/gigconnect/tailwind.config.js
 # Dependency directories
 node_modules/
 jspm_packages/

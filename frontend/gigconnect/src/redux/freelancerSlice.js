@@ -9,6 +9,32 @@ export const fetchSkillsThunk = createAsyncThunk(
   }
 );
 
+
+
+
+
+export const filteredFreelancers = createAsyncThunk(
+  'freelancers/fetchByCategory',
+  async (categoryId, { rejectWithValue }) => {
+    if (!categoryId || categoryId === 'undefined') {
+      return rejectWithValue('Valid category ID is required');
+    }
+    try {
+      const response = await axios.get(`http://127.0.0.1:8000/api/freelancers/filtered/?category=${categoryId}`);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.error || 'Error occurred while fetching freelancers');
+    }
+  }
+);
+
+
+
+
+
+
+
+
 export const fetchFreelancerDataThunk = createAsyncThunk(
   'freelancer/fetchFreelancerData',
   async (_, { rejectWithValue }) => {
@@ -18,7 +44,7 @@ export const fetchFreelancerDataThunk = createAsyncThunk(
 
       const response = await axios.get('http://127.0.0.1:8000/api/profile/freelancer/', {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${token}`, // Fixed syntax here
         },
       });
 
@@ -27,7 +53,7 @@ export const fetchFreelancerDataThunk = createAsyncThunk(
       // Fetch all skills
       const skillsResponse = await axios.get('http://127.0.0.1:8000/api/skills/', {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${token}`, // Fixed syntax here
         },
       });
 
@@ -38,8 +64,26 @@ export const fetchFreelancerDataThunk = createAsyncThunk(
       }, {});
 
       // Map freelancer skill IDs to skill objects
-      freelancerData.skills = freelancerData.skills.map(skillId => 
+      freelancerData.skills = freelancerData.skills.map(skillId =>
         skillMap[skillId] || { id: skillId, name: 'Unknown Skill' }
+      );
+
+      // Fetch all job categories
+      const categoriesResponse = await axios.get('http://127.0.0.1:8000/api/categories/', {
+        headers: {
+          Authorization: `Bearer ${token}`, // Fixed syntax here
+        },
+      });
+
+      // Create a map of category IDs to category details
+      const categoryMap = categoriesResponse.data.reduce((map, category) => {
+        map[category.id] = category;
+        return map;
+      }, {});
+
+      // Map freelancer job category IDs to category objects
+      freelancerData.job_categories = freelancerData.job_categories.map(categoryId =>
+        categoryMap[categoryId] || { id: categoryId, name: 'Unknown Category' }
       );
 
       return freelancerData;
@@ -53,24 +97,18 @@ export const fetchFreelancerDataThunk = createAsyncThunk(
   }
 );
 
-export const updateFreelancerProfileThunk = createAsyncThunk(
+
+
+export const updateFreelancerProfile = createAsyncThunk(
   'freelancer/updateProfile',
   async (profileData, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem('accessToken');
       if (!token) throw new Error('No token found');
 
-      const dataToSend = {
-        bio: profileData.bio,
-        skill_ids: profileData.skills,
-        job_category_ids: profileData.jobCategories
-      };
-
-      console.log('Sending data to backend:', dataToSend); // Debug log
-
       const response = await axios.put(
         'http://127.0.0.1:8000/api/profile/freelancer/',
-        dataToSend,
+        profileData,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -81,12 +119,11 @@ export const updateFreelancerProfileThunk = createAsyncThunk(
 
       return response.data;
     } catch (error) {
-      console.error('Error in updateFreelancerProfileThunk:', error);
-      return rejectWithValue({
-        message: error.message,
-        response: error.response ? error.response.data : null,
-        status: error.response ? error.response.status : null,
-      });
+      console.error('Error in updateFreelancerProfile:', error);
+      if (error.response && error.response.data && error.response.data.errors) {
+        return rejectWithValue(error.response.data.errors);
+      }
+      return rejectWithValue({ general: 'An unexpected error occurred. Please try again.' });
     }
   }
 );
@@ -102,12 +139,14 @@ export const fetchJobCategoriesThunk = createAsyncThunk(
 const freelancerSlice = createSlice({
   name: 'freelancer',
   initialState: {
-    profile: { bio: '', skills: [], jobCategories: [], name: '' },
+    profile: { bio: '', skills: [], job_categories: [], name: '' },
     status: 'idle',
     error: null,
     profileComplete: false,
     availableSkills: [],
     availableJobCategories: [],
+    filteredFreelancers: [],
+    currentFreelancer: null,
   },
   reducers: {
     setProfileComplete: (state, action) => {
@@ -119,11 +158,15 @@ const freelancerSlice = createSlice({
       .addCase(fetchSkillsThunk.fulfilled, (state, action) => {
         state.availableSkills = action.payload;
       })
-      .addCase(updateFreelancerProfileThunk.fulfilled, (state, action) => {
-        state.profile = action.payload;
-        state.profileComplete = true;
+      .addCase(updateFreelancerProfile.fulfilled, (state, action) => {
+        state.profile = { ...state.profile, ...action.payload };
+        state.loading = false;
+        // Ensure job_categories are properly updated
+        if (action.payload.job_categories) {
+          state.profile.job_categories = action.payload.job_categories;
+        }
       })
-      .addCase(updateFreelancerProfileThunk.rejected, (state, action) => {
+      .addCase(updateFreelancerProfile.rejected, (state, action) => {
         console.error('Update failed:', action.payload);
       })
       .addCase(fetchFreelancerDataThunk.pending, (state) => {
@@ -140,9 +183,27 @@ const freelancerSlice = createSlice({
       })
       .addCase(fetchJobCategoriesThunk.fulfilled, (state, action) => {
         state.availableJobCategories = action.payload;
+      })
+      .addCase(filteredFreelancers.pending, (state) => {
+        state.status = 'loading';
+      })
+      .addCase(filteredFreelancers.fulfilled, (state, action) => {
+        state.status = 'succeeded';
+        state.filteredFreelancers = action.payload;
+      })
+      .addCase(filteredFreelancers.rejected, (state, action) => {
+        state.status = 'failed';
+        state.error = action.payload;
       });
   },
 });
+
+
+
+export const selectFreelancerProfile = (state) => state.freelancer.profile;
+
+export const selectFreelancerStatus = (state) => state.freelancer.status;
+export const selectFreelancerError = (state) => state.freelancer.error;
 
 export const { setProfileComplete } = freelancerSlice.actions;
 export default freelancerSlice.reducer;

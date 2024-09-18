@@ -15,6 +15,8 @@ import JobDetails from './components/Jobs/JobDetails';
 import PrivateRoute from './components/PrivateRoute';
 import Layout from './components/Layout';
 import JobApplications from './components/Jobs/JobApplications';
+import FreelancerProfile from './components/Jobs/FreelancerDetail';
+import Signup from './components/Common/Signup';
 
 const AppRoutes = () => {
   return (
@@ -24,6 +26,7 @@ const AppRoutes = () => {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup/client" element={<ClientSignupPage />} />
         <Route path="/signup/freelancer" element={<FreelancerSignupPage />} />
+        <Route path="/signup" element={<Signup />} />
         
         <Route path="/client-dashboard" element={
           <PrivateRoute requiredRole="CLIENT">
@@ -51,10 +54,11 @@ const AppRoutes = () => {
         <Route path="/jobs/:id" element={<JobDetails />} />
         
         <Route path="/jobs/:jobId/applications" element={<JobApplications />} />
+        <Route path="/freelancers/:id" element={<FreelancerProfile />} />
       </Routes>
-    </Layout>
+   </Layout>
   );
-};
+}
 
 export default AppRoutes;
 

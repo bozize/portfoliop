@@ -20,7 +20,7 @@ class User(AbstractUser):
 
     base_role = Role.ADMIN
     role = models.CharField(max_length=50, choices=Role.choices, default=base_role)
-    # Rename related_name to avoid conflicts
+    
     skills = models.ManyToManyField('Skill', related_name='users_with_skill', blank=True)
 
     groups = models.ManyToManyField(
@@ -97,19 +97,36 @@ class Job(models.Model):
     def __str__(self):
         return self.title
 
-# Model for Job Application
-# models.py
+
 
 
 class JobApplication(models.Model):
+    TIME_UNIT_CHOICES = [
+        ('days', 'Days'),
+        ('months', 'Months'),
+    ]
+
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+    title = models.CharField(max_length=255, help_text="Title of the job application")
     cover_letter = models.TextField()
     proposed_pay = models.DecimalField(max_digits=10, decimal_places=2)
-    estimated_completion_time = models.CharField(max_length=100)
-    status = models.CharField(max_length=50, default='pending')  # Add default value
+    estimated_completion_time = models.PositiveIntegerField(
+        validators=[MinValueValidator(1)],
+        help_text="Estimated time to complete the job"
+    )
+    estimated_completion_time_unit = models.CharField(
+        max_length=6,
+        choices=TIME_UNIT_CHOICES,
+        default='days',
+        help_text="Unit for estimated completion time"
+    )
+    status = models.CharField(max_length=50, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.user.username} - {self.job.title}"
+        return f"{self.title} - {self.user.username} - {self.job.title}"
+
+    def get_estimated_completion_time_display(self):
+        return f"{self.estimated_completion_time} {self.get_estimated_completion_time_unit_display()}"

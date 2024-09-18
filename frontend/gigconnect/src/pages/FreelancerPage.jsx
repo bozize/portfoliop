@@ -8,9 +8,20 @@ const FreelancerProfileForm = () => {
     const navigate = useNavigate();
     const { availableSkills = [], profile = {}, status, profileComplete } = useSelector((state) => state.freelancer);
 
+
+
+
+
+    const username = localStorage.getItem('username') || 'default_username';
+
+
+
+
+
     const [formData, setFormData] = useState({
         bio: profile.bio || '',
-        skills: profile.skills?.map(skill => skill.id) || []
+        skills: profile.skills?.map(skill => skill.id) || [],
+        username: username
     });
 
     useEffect(() => {

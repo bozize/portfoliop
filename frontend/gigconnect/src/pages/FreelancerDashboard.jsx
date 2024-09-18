@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate, Link } from 'react-router-dom';
-import { fetchFreelancerDataThunk, updateFreelancerProfileThunk, fetchSkillsThunk, fetchJobCategoriesThunk } from '../redux/freelancerSlice';
+import { fetchFreelancerDataThunk, updateFreelancerProfile, fetchSkillsThunk, fetchJobCategoriesThunk } from '../redux/freelancerSlice';
 import { fetchFreelancerJobApplications, selectFreelancerJobApplications, selectFreelancerJobApplicationsStatus, selectFreelancerJobApplicationsError } from '../redux/jobsSlice';
 import { logout } from '../redux/actions/authActions';
 
@@ -19,14 +19,7 @@ const FreelancerDashboard = () => {
     jobCategories: []
   });
 
-  useEffect(() => {
-    dispatch(fetchFreelancerDataThunk());
-    dispatch(fetchSkillsThunk());
-    dispatch(fetchJobCategoriesThunk());
-    dispatch(fetchFreelancerJobApplications());
-  }, [dispatch]);
-
-  useEffect(() => {
+  const updateFormData = useCallback(() => {
     if (profile) {
       setFormData({
         bio: profile.bio || '',
@@ -36,6 +29,19 @@ const FreelancerDashboard = () => {
     }
   }, [profile]);
 
+  useEffect(() => {
+    console.log('Fetching freelancer data...');
+    dispatch(fetchFreelancerDataThunk());
+    dispatch(fetchSkillsThunk());
+    dispatch(fetchJobCategoriesThunk());
+    dispatch(fetchFreelancerJobApplications());
+  }, [dispatch]);
+
+  useEffect(() => {
+    console.log('Profile updated:', profile);
+    updateFormData();
+  }, [profile, updateFormData]);
+
   const handleLogout = () => {
     dispatch(logout());
     navigate('/');
@@ -43,43 +49,46 @@ const FreelancerDashboard = () => {
 
   const handleEditClick = () => {
     setIsEditing(true);
+    updateFormData();
   };
 
   const handleCancelEdit = () => {
     setIsEditing(false);
-    setFormData({
-      bio: profile.bio || '',
-      skills: profile.skills?.map(skill => skill.id) || [],
-      jobCategories: profile.job_categories?.map(category => category.id) || []
-    });
+    updateFormData();
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const updatedFormData = {
-      ...formData,
-      skills: formData.skills.map(skill => typeof skill === 'object' ? skill.id : skill),
-      jobCategories: formData.jobCategories.map(category => typeof category === 'object' ? category.id : category)
+      bio: formData.bio,
+      skills: formData.skills,
+      job_categories: formData.jobCategories
     };
-    console.log('Submitting form data:', updatedFormData); // Debug log
-    const resultAction = await dispatch(updateFreelancerProfileThunk(updatedFormData));
-    if (updateFreelancerProfileThunk.fulfilled.match(resultAction)) {
-      setIsEditing(false);
-      dispatch(fetchFreelancerDataThunk());
-    } else {
-      console.error('Profile update failed:', resultAction.payload);
+    console.log('Submitting form data:', updatedFormData);
+    try {
+      const resultAction = await dispatch(updateFreelancerProfile(updatedFormData));
+      console.log('Update result:', resultAction);
+      if (updateFreelancerProfile.fulfilled.match(resultAction)) {
+        console.log('Profile updated successfully');
+        setIsEditing(false);
+        dispatch(fetchFreelancerDataThunk());
+      } else {
+        console.error('Profile update failed:', resultAction.error);
+        throw new Error('Profile update failed');
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
       // You might want to show an error message to the user here
     }
   };
-  
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    if (name === 'skills' || name === 'jobCategories') {
-      const selectedOptions = Array.from(e.target.selectedOptions, option => parseInt(option.value, 10));
+    const { name, value, type, selectedOptions } = e.target;
+    if (type === 'select-multiple') {
+      const values = Array.from(selectedOptions, option => parseInt(option.value, 10));
       setFormData(prevData => ({
         ...prevData,
-        [name]: selectedOptions
+        [name]: values
       }));
     } else {
       setFormData(prevData => ({
@@ -88,6 +97,9 @@ const FreelancerDashboard = () => {
       }));
     }
   };
+
+  console.log('Current form data:', formData);
+  console.log('Current profile:', profile);
 
   if (status === 'loading') {
     return <div>Loading...</div>;
@@ -155,7 +167,7 @@ const FreelancerDashboard = () => {
             <ul>
               {freelancerJobApplications.map((application) => (
                 <li key={application.id}>
-                  <h3>{application.job.title}</h3>
+                  <h3>{application.job_title}</h3>
                   <p>Status: {application.status}</p>
                   <p>Proposed Pay: ${application.proposed_pay}</p>
                   <p>Estimated Completion Time: {application.estimated_completion_time}</p>

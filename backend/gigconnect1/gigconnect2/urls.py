@@ -7,7 +7,7 @@ from .views import (
     job_category_detail,
     skill_list_create,
     skill_detail,
-    job_category_freelancers,
+    
     skill_freelancers,
     job_create,
     job_detail,
@@ -20,6 +20,9 @@ from .views import (
     job_list_filtered,
     client_jobs_list,
     freelancer_job_applications,
+    filtered_freelancers,
+    freelancer_detail,
+    freelancer_list,
 )
 
 urlpatterns = [
@@ -35,7 +38,7 @@ urlpatterns = [
     # Job Categories
     path('categories/', job_category_list_create, name='job_category_list_create'),
     path('categories/<int:pk>/', job_category_detail, name='job_category_detail'),
-    path('categories/<int:pk>/freelancers/', job_category_freelancers, name='job_category_freelancers'),
+    
 
     # Skills
     path('skills/', skill_list_create, name='skill_list_create'),
@@ -56,6 +59,11 @@ urlpatterns = [
 
     # Search functionality
     path('search/', search_view, name='search'),
+
+
+    path('freelancers/filtered/', filtered_freelancers, name='filtered_freelancers'),
+    path('freelancers/<int:pk>/', freelancer_detail, name='freelancer-detail'),
+    path('api/freelancers/', freelancer_list, name='freelancer-list'),
 
     
 
